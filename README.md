@@ -1,6 +1,6 @@
 # Nebi Demo Video Pipeline
 
-[![Demo Pipeline](https://github.com/nebari-dev/nebi-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/nebari-dev/nebi-demo/actions/workflows/ci.yml)
+[![Demo Pipeline](https://github.com/nebari-dev/nebi-video-demo-automation/actions/workflows/ci.yml/badge.svg)](https://github.com/nebari-dev/nebi-video-demo-automation/actions/workflows/ci.yml)
 
 Automated demo video pipeline for [Nebi](https://github.com/nebari-dev/nebi). Starts a local Nebi server, seeds it with sample data, records a full UI walkthrough with Playwright, generates narration with Kokoro TTS, and merges everything into a final video with FFmpeg.
 
