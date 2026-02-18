@@ -2,10 +2,13 @@
 """Generate narration audio clips for the demo video using Kokoro TTS."""
 
 import json
+import warnings
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+
+warnings.filterwarnings("ignore", message="dropout option adds dropout")
 from kokoro import KPipeline
 
 OUTPUT_DIR = Path(__file__).parent / "output" / "audio"
@@ -118,7 +121,7 @@ NARRATIONS = [
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    pipeline = KPipeline(lang_code="a")  # American English
+    pipeline = KPipeline(repo_id="hexgrad/Kokoro-82M", lang_code="a")  # American English
 
     durations = {}
     total_dur = 0.0

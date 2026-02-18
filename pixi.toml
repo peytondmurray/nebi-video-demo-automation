@@ -6,7 +6,15 @@ platforms = ["osx-arm64", "linux-64"]
 [dependencies]
 python = ">=3.11,<3.13"
 pip = "*"
+ffmpeg = ">=7"
+jq = ">=1.7"
 
 [pypi-dependencies]
 kokoro = ">=0.8"
 soundfile = ">=0.13"
+
+[tasks]
+audio = "python generate_audio.py"
+record = "npx tsx record.ts"
+convert = "bash convert.sh"
+demo = { cmd = "npx tsx record.ts && bash convert.sh", depends-on = ["audio"] }

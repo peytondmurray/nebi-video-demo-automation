@@ -129,8 +129,8 @@ export async function hideAnnotation(page: Page): Promise<void> {
   });
 }
 
-export async function showFinalOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
+export async function showFinalOverlay(page: Page, logoDataUri: string): Promise<void> {
+  await page.evaluate((logoSrc: string) => {
     // Remove annotation
     const ann = document.getElementById("nebi-demo-annotation");
     if (ann) ann.remove();
@@ -165,7 +165,7 @@ export async function showFinalOverlay(page: Page): Promise<void> {
     });
 
     const logo = document.createElement("img");
-    logo.src = "/nebi-icon.png";
+    logo.src = logoSrc;
     logo.alt = "Nebi";
     Object.assign(logo.style, {
       width: "280px",
@@ -203,5 +203,5 @@ export async function showFinalOverlay(page: Page): Promise<void> {
     requestAnimationFrame(() => {
       content.style.opacity = "1";
     });
-  });
+  }, logoDataUri);
 }

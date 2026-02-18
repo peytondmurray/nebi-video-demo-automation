@@ -231,11 +231,11 @@ seaborn = ">=0.13"
 `;
 
 async function seedData(base: string) {
-  console.log("Seeding data...");
+  logPhase("Seeding data (7 steps)");
   const token = await login(base);
 
   // 1. Create workspace "ml-pipeline"
-  console.log("  Creating workspace ml-pipeline...");
+  console.log("  [1/7] Creating workspace ml-pipeline...");
   const ws1 = (await api(base, "POST", "/api/v1/workspaces", {
     name: "ml-pipeline",
     package_manager: "pixi",
@@ -244,41 +244,39 @@ async function seedData(base: string) {
   }, token)) as { id: string };
 
   // Wait for workspace to become ready (create job runs in background)
-  console.log("  Waiting for ml-pipeline to be ready...");
+  console.log("        Waiting for ml-pipeline to be ready...");
   await waitForWorkspaceReady(base, token, ws1.id);
 
   // 2. Push 3 versions with evolving pixi.toml
-  console.log("  Pushing version v1.0...");
+  console.log("  [2/7] Pushing versions v1.0, v2.0, v3.0...");
   await api(base, "POST", `/api/v1/workspaces/${ws1.id}/push`, {
     tag: "v1.0",
     pixi_toml: PIXI_TOML_V1,
   }, token);
 
-  console.log("  Pushing version v2.0...");
   await api(base, "POST", `/api/v1/workspaces/${ws1.id}/push`, {
     tag: "v2.0",
     pixi_toml: PIXI_TOML_V2,
   }, token);
 
-  console.log("  Pushing version v3.0...");
   await api(base, "POST", `/api/v1/workspaces/${ws1.id}/push`, {
     tag: "v3.0",
     pixi_toml: PIXI_TOML_V3,
   }, token);
 
   // 3. Create second workspace
-  console.log("  Creating workspace web-dashboard...");
+  console.log("  [3/7] Creating workspace web-dashboard...");
   const ws2 = (await api(base, "POST", "/api/v1/workspaces", {
     name: "web-dashboard",
     package_manager: "pixi",
     source: "managed",
   }, token)) as { id: string };
 
-  console.log("  Waiting for web-dashboard to be ready...");
+  console.log("        Waiting for web-dashboard to be ready...");
   await waitForWorkspaceReady(base, token, ws2.id);
 
   // 4. Create user "alice"
-  console.log("  Creating user alice...");
+  console.log("  [4/7] Creating user alice...");
   await api(base, "POST", "/api/v1/admin/users", {
     username: "alice",
     email: "alice@example.com",
@@ -287,7 +285,7 @@ async function seedData(base: string) {
 
   // 5. Update the default nebari-environments registry with API token for browsing
   //    (this is a public read-only registry that ships with every Nebi installation)
-  console.log("  Configuring nebari-environments registry...");
+  console.log("  [5/7] Configuring nebari-environments registry...");
   const registries = (await api(base, "GET", "/api/v1/registries", undefined, token)) as Array<{ id: string; name: string }>;
   const nebiRegistry = registries.find((r) => r.name === "nebari-environments");
   if (nebiRegistry && QUAY_API_TOKEN) {
@@ -299,7 +297,7 @@ async function seedData(base: string) {
   }
 
   // 6. Create a writable registry for publishing (team has write access)
-  console.log("  Creating team-environments registry...");
+  console.log("  [6/7] Creating team-environments registry...");
   if (QUAY_USERNAME && QUAY_PASSWORD) {
     await api(base, "POST", "/api/v1/admin/registries", {
       name: "team-environments",
@@ -314,20 +312,57 @@ async function seedData(base: string) {
   }
 
   // 7. Set avatar for admin user (no API for this, update DB directly)
-  console.log("  Setting avatar for admin user...");
+  console.log("  [7/7] Setting avatar for admin user...");
   const tmpDb = path.join(OUTPUT_DIR, "demo.db");
   // Use a data URI so no external requests or backend changes needed
   const avatarSvg = fs.readFileSync(path.join(__dirname, "demo-avatar.svg"));
   const avatarUrl = `data:image/svg+xml;base64,${avatarSvg.toString("base64")}`;
   execSync(`sqlite3 "${tmpDb}" "UPDATE users SET avatar_url='${avatarUrl}' WHERE username='${ADMIN_USER}'"`);
 
-  console.log("Seeding complete.");
+  logPhase("Seeding complete");
 }
 
 // ── Recording ───────────────────────────────────────────────────────────
 
+const TOTAL_SCENES = 16;
+const SCENE_NAMES = [
+  "Login",
+  "Workspace list",
+  "Workspace detail",
+  "Packages",
+  "pixi.toml",
+  "Version History",
+  "Publish",
+  "Share/Collaborators",
+  "Jobs",
+  "Registries",
+  "Browse & Import",
+  "Admin dashboard",
+  "User management",
+  "Registries (admin)",
+  "Audit logs",
+  "Final overlay",
+];
+
+const SEPARATOR = "═".repeat(60);
+
+function logPhase(title: string) {
+  console.log(`\n${SEPARATOR}`);
+  console.log(`  ${title}`);
+  console.log(SEPARATOR);
+}
+
+function logScene(n: number, elapsed: number) {
+  const name = SCENE_NAMES[n - 1] || `Scene ${n}`;
+  const mins = Math.floor(elapsed / 60000);
+  const secs = Math.floor((elapsed % 60000) / 1000);
+  const ts = mins > 0 ? `${mins}m${secs}s` : `${secs}s`;
+  console.log(`\n  [${n}/${TOTAL_SCENES}] ${name} (${ts} elapsed)`);
+}
+
 async function recordDemo(base: string) {
-  console.log("Starting Playwright recording...");
+  const mode = process.argv.includes("--headless") || process.env.HEADLESS === "1" ? "headless" : "headed";
+  logPhase(`Recording ${TOTAL_SCENES} scenes (${mode})`);
 
   // Load audio durations (generated by generate_audio.py) for timing guards.
   // This ensures NO overlapping clips and NO empty spaces — each scene waits
@@ -337,7 +372,13 @@ async function recordDemo(base: string) {
     ? JSON.parse(fs.readFileSync(durationsPath, "utf-8"))
     : {};
 
-  const browser = await chromium.launch({ headless: false });
+  const headless = process.argv.includes("--headless") || process.env.HEADLESS === "1";
+  // In headless mode, Chromium needs --force-device-scale-factor to honor DPI
+  // for video capture (without it, content renders at 1x in top-left corner).
+  const browser = await chromium.launch({
+    headless,
+    args: headless ? ["--force-device-scale-factor=2"] : [],
+  });
   const context = await browser.newContext({
     viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 2,
@@ -382,7 +423,7 @@ async function recordDemo(base: string) {
   }
 
   // Scene 1: Login — narration plays over login actions
-  console.log("  Scene 1: Login");
+  logScene(1, Date.now() - recordingStart);
   await page.goto(`${base}/login`);
   await page.getByPlaceholder("Username").waitFor();
   markAudioStart("01.wav");
@@ -398,7 +439,7 @@ async function recordDemo(base: string) {
   await waitForClipEnd();
 
   // Scene 2: Workspace list
-  console.log("  Scene 2: Workspace list");
+  logScene(2, Date.now() - recordingStart);
   await page.getByRole("heading", { name: "Workspaces" }).waitFor();
   markAudioStart("02.wav");
   await showAnnotation(page, "Manage workspaces for your team");
@@ -409,7 +450,7 @@ async function recordDemo(base: string) {
   // Overview → Packages → pixi.toml → Version History → Publications → Collaborators
 
   // Scene 3: Workspace detail (Overview)
-  console.log("  Scene 3: Workspace detail");
+  logScene(3, Date.now() - recordingStart);
   await demoClick(page, page.getByText("ml-pipeline").first());
   await page.getByText("Workspace details and packages").waitFor();
   markAudioStart("03.wav");
@@ -418,7 +459,7 @@ async function recordDemo(base: string) {
   await hideAnnotation(page);
 
   // Scene 4: Packages — install scipy
-  console.log("  Scene 4: Packages tab");
+  logScene(4, Date.now() - recordingStart);
   await demoClick(page, page.getByText("Packages", { exact: true }));
   await sleep(300);
   markAudioStart("04.wav");
@@ -443,7 +484,7 @@ async function recordDemo(base: string) {
   await hideAnnotation(page);
 
   // Scene 5: pixi.toml tab
-  console.log("  Scene 5: pixi.toml tab");
+  logScene(5, Date.now() - recordingStart);
   markAudioStart("05.wav");
   await demoClick(page, page.getByText("pixi.toml", { exact: true }));
   await sleep(300);
@@ -456,7 +497,7 @@ async function recordDemo(base: string) {
   await hideAnnotation(page);
 
   // Scene 6: Version History — expand an older version to show rollback
-  console.log("  Scene 6: Version History");
+  logScene(6, Date.now() - recordingStart);
   markAudioStart("06.wav");
   await demoClick(page, page.getByText("Version History", { exact: true }));
   await sleep(500);
@@ -474,7 +515,7 @@ async function recordDemo(base: string) {
 
   // Scene 7: Publish workspace to OCI registry
   // Navigate to Publications tab first, publish, then show the artifact in the tab
-  console.log("  Scene 7: Publish workspace");
+  logScene(7, Date.now() - recordingStart);
   await demoClick(page, page.locator("button").filter({ hasText: /^Publications/ }));
   await sleep(500);
   markAudioStart("07.wav");
@@ -498,7 +539,7 @@ async function recordDemo(base: string) {
 
   // Scene 8: Share workspace with team member (Collaborators)
   // Navigate to Collaborators tab first, share, then show collaborator in the tab
-  console.log("  Scene 8: Share workspace");
+  logScene(8, Date.now() - recordingStart);
   await demoClick(page, page.locator("button").filter({ hasText: /^Collaborators/ }));
   await sleep(500);
   markAudioStart("08.wav");
@@ -525,7 +566,7 @@ async function recordDemo(base: string) {
   await sleep(500);
 
   // Scene 9: Jobs page
-  console.log("  Scene 9: Jobs");
+  logScene(9, Date.now() - recordingStart);
   await demoClick(page, page.locator("header nav").getByText("Jobs"));
   await page.getByText("View all job executions").waitFor();
   markAudioStart("09.wav");
@@ -539,7 +580,7 @@ async function recordDemo(base: string) {
   await hideAnnotation(page);
 
   // Scene 10: Registries page
-  console.log("  Scene 10: Registries");
+  logScene(10, Date.now() - recordingStart);
   await demoClick(page, page.locator("header nav").getByText("Registries"));
   await page.getByText("Browse OCI registries").waitFor();
   markAudioStart("10.wav");
@@ -548,7 +589,7 @@ async function recordDemo(base: string) {
   await hideAnnotation(page);
 
   // Scene 11: Browse registry and import (narration during browse + import)
-  console.log("  Scene 11: Browse & Import");
+  logScene(11, Date.now() - recordingStart);
   await demoClick(page, page.getByRole("button", { name: "Browse" }).first());
   await page.getByText("Browse repositories in this registry").waitFor();
   await page.getByRole("table").getByRole("button", { name: "View Tags" }).first().waitFor({ timeout: 30000 });
@@ -574,7 +615,7 @@ async function recordDemo(base: string) {
   await waitForClipEnd();
 
   // Scene 12: Admin dashboard
-  console.log("  Scene 12: Admin dashboard");
+  logScene(12, Date.now() - recordingStart);
   await demoClick(page, page.locator("header a[href='/admin']"));
   await page.getByText("System overview and management").waitFor();
   markAudioStart("12.wav");
@@ -583,15 +624,15 @@ async function recordDemo(base: string) {
   await hideAnnotation(page);
 
   // Scene 13: User management
-  console.log("  Scene 13: User management");
+  logScene(13, Date.now() - recordingStart);
   markAudioStart("13.wav");
   await demoClick(page, page.getByText("Users", { exact: true }));
   await showAnnotation(page, "Multi-user access control");
   await waitForClipEnd();
   await hideAnnotation(page);
 
-  // Scene 14: Registries
-  console.log("  Scene 14: Registries");
+  // Scene 14: Registries (admin)
+  logScene(14, Date.now() - recordingStart);
   markAudioStart("14.wav");
   await demoClick(page, page.locator("aside").getByText("Registries"));
   await showAnnotation(page, "Manage OCI registries");
@@ -599,7 +640,7 @@ async function recordDemo(base: string) {
   await hideAnnotation(page);
 
   // Scene 15: Audit logs
-  console.log("  Scene 15: Audit logs");
+  logScene(15, Date.now() - recordingStart);
   markAudioStart("15.wav");
   await demoClick(page, page.locator("aside").getByText("Logs"));
   await showAnnotation(page, "Complete audit trail");
@@ -607,10 +648,12 @@ async function recordDemo(base: string) {
   await hideAnnotation(page);
 
   // Scene 16: Final overlay
-  console.log("  Scene 16: Final overlay");
+  logScene(16, Date.now() - recordingStart);
   await hideCursor(page);
   markAudioStart("16.wav");
-  await showFinalOverlay(page);
+  const logoPng = fs.readFileSync(path.join(__dirname, "nebi-icon.png"));
+  const logoDataUri = `data:image/png;base64,${logoPng.toString("base64")}`;
+  await showFinalOverlay(page, logoDataUri);
   await waitForClipEnd();
 
   // Write audio timestamps for convert.sh
@@ -628,6 +671,9 @@ async function recordDemo(base: string) {
   }
   await context.close();
   await browser.close();
+
+  const totalSecs = Math.round((Date.now() - recordingStart) / 1000);
+  logPhase(`Recording complete: ${TOTAL_SCENES} scenes in ${Math.floor(totalSecs / 60)}m${totalSecs % 60}s`);
 }
 
 // ── Main ────────────────────────────────────────────────────────────────
@@ -642,11 +688,12 @@ async function main() {
   }
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
+  logPhase("Resolving nebi binary");
   const binary = await ensureBinary();
 
   const port = await findFreePort();
   const base = `http://127.0.0.1:${port}`;
-  console.log(`Using port ${port}`);
+  logPhase(`Starting server on port ${port}`);
 
   let server: ChildProcess | undefined;
   try {
@@ -657,7 +704,7 @@ async function main() {
     if (server) stopServer(server);
   }
 
-  console.log("Done! Run 'bash convert.sh' to generate MP4 and GIF.");
+  logPhase("Done! Run 'bash convert.sh' to generate MP4 and GIF.");
 }
 
 main().catch((err) => {
