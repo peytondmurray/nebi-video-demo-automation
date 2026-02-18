@@ -4,6 +4,8 @@
 
 Automated demo video pipeline for [Nebi](https://github.com/nebari-dev/nebi). Starts a local Nebi server, seeds it with sample data, records a full UI walkthrough with Playwright, generates narration with Kokoro TTS, and merges everything into a final video with FFmpeg.
 
+![Nebi Demo](assets/demo.gif)
+
 ## How it works
 
 The pipeline has three stages:

@@ -84,14 +84,14 @@ else
   mv "$MP4_SILENT" "$MP4"
 fi
 
-# GIF is sped up 5x since there's no audio
-GIF_SPEED="setpts=PTS/5,"
+# GIF is sped up 3x since there's no audio
+GIF_SPEED="setpts=PTS/3,"
 
 echo "Generating GIF palette..."
-ffmpeg -y -i "$MP4" -vf "${GIF_SPEED}fps=12,scale=1920:-1:flags=lanczos,palettegen=stats_mode=diff" "$PALETTE"
+ffmpeg -y -i "$MP4" -vf "${GIF_SPEED}fps=12,scale=1920:-1:flags=lanczos,palettegen=max_colors=256:stats_mode=full" "$PALETTE"
 
-echo "Converting MP4 → GIF (5x speed)..."
-ffmpeg -y -i "$MP4" -i "$PALETTE" -lavfi "${GIF_SPEED}fps=12,scale=1920:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" "$GIF"
+echo "Converting MP4 → GIF (3x speed)..."
+ffmpeg -y -i "$MP4" -i "$PALETTE" -lavfi "${GIF_SPEED}fps=12,scale=1920:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=sierra2_4a:diff_mode=rectangle" "$GIF"
 echo "  → $GIF ($(du -h "$GIF" | cut -f1))"
 
 rm -f "$PALETTE"
