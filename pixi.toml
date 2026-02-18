@@ -14,7 +14,7 @@ kokoro = ">=0.8"
 soundfile = ">=0.13"
 
 [tasks]
-audio = "python generate_audio.py"
-record = "npx tsx record.ts"
-convert = "bash convert.sh"
-demo = { cmd = "npx tsx record.ts && bash convert.sh", depends-on = ["audio"] }
+audio = "python scripts/generate_audio.py"
+record = "npx tsx src/record.ts"
+convert = "bash scripts/convert.sh"
+demo = { cmd = "npx tsx src/record.ts && bash scripts/convert.sh", depends-on = ["audio"] }

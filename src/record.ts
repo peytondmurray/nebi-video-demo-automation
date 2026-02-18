@@ -6,7 +6,7 @@ import { chromium } from "playwright";
 import { showAnnotation, hideAnnotation, showFinalOverlay, demoClick, demoType, hideCursor } from "./annotations";
 
 // Load .env file from repo root
-const envPath = path.resolve(__dirname, ".env");
+const envPath = path.resolve(__dirname, "..", ".env");
 if (fs.existsSync(envPath)) {
   for (const line of fs.readFileSync(envPath, "utf-8").split("\n")) {
     const trimmed = line.trim();
@@ -24,7 +24,7 @@ if (fs.existsSync(envPath)) {
 const ADMIN_USER = "johndoe";
 const ADMIN_PASS = "demo-password";
 const JWT_SECRET = "demo-secret";
-const OUTPUT_DIR = path.join(__dirname, "output");
+const OUTPUT_DIR = path.join(__dirname, "..", "output");
 
 // ── Binary resolution ────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ async function ensureBinary(): Promise<string> {
   } catch {}
 
   // 2. Check local ./bin/nebi
-  const local = path.join(__dirname, "bin", "nebi");
+  const local = path.join(__dirname, "..", "bin", "nebi");
   if (fs.existsSync(local)) {
     console.log(`Using local binary: ${local}`);
     return local;
@@ -315,7 +315,7 @@ async function seedData(base: string) {
   console.log("  [7/7] Setting avatar for admin user...");
   const tmpDb = path.join(OUTPUT_DIR, "demo.db");
   // Use a data URI so no external requests or backend changes needed
-  const avatarSvg = fs.readFileSync(path.join(__dirname, "demo-avatar.svg"));
+  const avatarSvg = fs.readFileSync(path.join(__dirname, "..", "assets", "demo-avatar.svg"));
   const avatarUrl = `data:image/svg+xml;base64,${avatarSvg.toString("base64")}`;
   execSync(`sqlite3 "${tmpDb}" "UPDATE users SET avatar_url='${avatarUrl}' WHERE username='${ADMIN_USER}'"`);
 
@@ -651,7 +651,7 @@ async function recordDemo(base: string) {
   logScene(16, Date.now() - recordingStart);
   await hideCursor(page);
   markAudioStart("16.wav");
-  const logoPng = fs.readFileSync(path.join(__dirname, "nebi-icon.png"));
+  const logoPng = fs.readFileSync(path.join(__dirname, "..", "assets", "nebi-icon.png"));
   const logoDataUri = `data:image/png;base64,${logoPng.toString("base64")}`;
   await showFinalOverlay(page, logoDataUri);
   await waitForClipEnd();

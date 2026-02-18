@@ -11,7 +11,7 @@ import soundfile as sf
 warnings.filterwarnings("ignore", message="dropout option adds dropout")
 from kokoro import KPipeline
 
-OUTPUT_DIR = Path(__file__).parent / "output" / "audio"
+OUTPUT_DIR = Path(__file__).parent.parent / "output" / "audio"
 VOICE = "am_puck"
 
 # Continuous YouTube-style voiceover. Each clip flows into the next

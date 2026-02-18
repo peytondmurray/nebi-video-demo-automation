@@ -4,5 +4,6 @@ output/
 data/
 bin/
 *.db*
+dist/
 .DS_Store
 .env

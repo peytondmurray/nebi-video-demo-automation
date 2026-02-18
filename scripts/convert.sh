@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT="$DIR/output"
 WEBM="$OUTPUT/demo.webm"
 MP4_SILENT="$OUTPUT/demo_silent.mp4"

@@ -24,13 +24,22 @@ jobs:
       - run: npm ci
       - run: npx playwright install chromium
 
-      - run: HEADLESS=1 pixi run demo
+      - name: Download nebi binary
+        run: |
+          mkdir -p bin
+          gh release download v0.6.0-rc3 --repo nebari-dev/nebi --pattern 'nebi_*_macOS_arm64.tar.gz' --output - | tar xz -C bin
+          chmod +x bin/nebi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Run full demo pipeline
+        run: HEADLESS=1 pixi run demo
 
       - name: Verify output
         run: |
           test -f output/demo.mp4
           test -f output/demo.gif
-          ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/demo.mp4
+          pixi run ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/demo.mp4
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
