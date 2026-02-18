@@ -1,0 +1,12 @@
+[workspace]
+name = "nebi-demo"
+channels = ["conda-forge", "pytorch"]
+platforms = ["osx-arm64", "linux-64"]
+
+[dependencies]
+python = ">=3.11,<3.13"
+pip = "*"
+
+[pypi-dependencies]
+kokoro = ">=0.8"
+soundfile = ">=0.13"

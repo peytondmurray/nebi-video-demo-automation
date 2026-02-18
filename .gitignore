@@ -1,0 +1,8 @@
+node_modules/
+.pixi/
+output/
+data/
+bin/
+*.db*
+.DS_Store
+.env
