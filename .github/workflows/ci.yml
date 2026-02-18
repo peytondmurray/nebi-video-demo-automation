@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  demo:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: prefix-dev/setup-pixi@a0af7a228712d6121d37aba47adf55c1332c9c2e # v0.9.4
+        with:
+          cache: true
+
+      - run: npm ci
+      - run: npx playwright install chromium
+
+      - run: HEADLESS=1 pixi run demo
+
+      - name: Verify output
+        run: |
+          test -f output/demo.mp4
+          test -f output/demo.gif
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/demo.mp4
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: always()
+        with:
+          name: demo-video
+          path: |
+            output/demo.mp4
+            output/demo.gif
+          retention-days: 7
