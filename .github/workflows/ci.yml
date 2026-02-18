@@ -34,6 +34,10 @@ jobs:
 
       - name: Run full demo pipeline
         run: HEADLESS=1 pixi run demo
+        env:
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+          API_TOKEN: ${{ secrets.QUAY_API_TOKEN }}
 
       - name: Verify output
         run: |
