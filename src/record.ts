@@ -601,15 +601,15 @@ async function recordDemo(base: string) {
   // View Tags → Import flow (continues during narration)
   await demoClick(page, page.getByRole("table").getByRole("button", { name: "View Tags" }).first());
   await page.getByText("Select a tag to import").waitFor();
-  await page.getByRole("table").getByRole("button", { name: "Import" }).first().waitFor({ timeout: 15000 });
-  await demoClick(page, page.getByRole("table").getByRole("button", { name: "Import" }).first());
+  await page.getByRole("table").getByRole("button", { name: "Import", exact: true }).first().waitFor({ timeout: 15000 });
+  await demoClick(page, page.getByRole("table").getByRole("button", { name: "Import", exact: true }).first());
   await showAnnotation(page, "Import environments with one click");
   const wsNameInput = page.getByPlaceholder("Enter workspace name");
   await wsNameInput.waitFor();
   await demoClick(page, wsNameInput);
   await demoType(page, wsNameInput, "imported-env");
   const importCard = page.locator("[class*='card']", { has: page.getByText("Import Environment") });
-  await demoClick(page, importCard.getByRole("button", { name: "Import" }));
+  await demoClick(page, importCard.getByRole("button", { name: "Import", exact: true }));
   await page.waitForURL("**/workspaces", { timeout: 60000 });
   await hideAnnotation(page);
   await waitForClipEnd();
