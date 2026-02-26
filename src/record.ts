@@ -2,6 +2,8 @@ import { spawn, execSync, ChildProcess } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as net from "net";
+import * as tar from "tar";
+import * as zlib from "zlib";
 import { chromium } from "playwright";
 import { showAnnotation, hideAnnotation, showFinalOverlay, demoClick, demoType, hideCursor } from "./annotations";
 
@@ -27,18 +29,47 @@ const JWT_SECRET = "demo-secret";
 const OUTPUT_DIR = path.join(__dirname, "..", "output");
 
 // ── Binary resolution ────────────────────────────────────────────────────
-
-function getPlatformInfo(): { os: string; arch: string } {
-  const platform = process.platform;
+function getNebiFilename(): string {
+  const plat = process.platform;
   const arch = process.arch;
-  const os = platform === "darwin" ? "darwin" : platform === "win32" ? "windows" : "linux";
-  const goArch = arch === "arm64" ? "arm64" : "amd64";
-  return { os, arch: goArch };
+  if (plat == "darwin") {
+      return "nebi-desktop-macos-universal.zip"
+  } else if (plat == "win32" && arch == "x64") {
+      return "nebi-desktop-windows-amd64.exe"
+  } else if (plat == "linux" && arch == "x64") {
+      return "nebi-desktop-linux-amd64.tar.gz"
+  } else {
+      throw new Error(
+      `No nebi release exists for this platform (${{architecture: arch, platform: plat}})`
+    )
+  }
+}
+
+/**
+ * @param filename - Filename to possibly extract and rename
+ * @param destDir - Directory where the nebi binary should live. Must already exist on filesystem.
+ */
+async function maybeExtract(filename: string, destDir: string) {
+  const finalPath = path.join(destDir, "nebi")
+
+  if (filename.endsWith(".tar.gz")) {
+    // Extract to the same directory where the archive is; rename Nebi -> nebi, the rest of the tool
+    // expects lowercase `nebi`
+    const extractDir = path.dirname(filename)
+    await tar.x({f: filename, C: extractDir})
+    fs.renameSync(path.join(extractDir, "Nebi"), finalPath)
+  } else if (filename.endsWith(".zip")) {
+    const buf = zlib.unzipSync(fs.readFileSync(filename))
+    fs.writeFileSync(finalPath, buf)
+  } else {
+    // No need to do anything for .exe files except rename them to the dest
+    fs.renameSync(filename, finalPath)
+  }
+
 }
 
 async function downloadBinary(dest: string): Promise<void> {
-  const { os, arch } = getPlatformInfo();
-  const filename = `nebi-${os}-${arch}`;
+  const filename = getNebiFilename()
   const url = `https://github.com/nebari-dev/nebi/releases/latest/download/${filename}`;
   console.log(`Downloading nebi binary from ${url}...`);
 
@@ -46,8 +77,11 @@ async function downloadBinary(dest: string): Promise<void> {
   if (!res.ok) throw new Error(`Failed to download binary: ${res.status} ${res.statusText}`);
 
   const buffer = Buffer.from(await res.arrayBuffer());
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.writeFileSync(dest, buffer);
+  const parent = path.dirname(dest)
+  const downloadedFilename = path.join(parent, filename)
+  fs.mkdirSync(parent, { recursive: true });
+  fs.writeFileSync(downloadedFilename, buffer);
+  await maybeExtract(downloadedFilename, dest)
   fs.chmodSync(dest, 0o755);
   console.log(`Binary downloaded to ${dest}`);
 }
