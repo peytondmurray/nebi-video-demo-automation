@@ -77,6 +77,72 @@ const QUAY_USERNAME = process.env.QUAY_USERNAME || "";
 const QUAY_PASSWORD = process.env.QUAY_PASSWORD || "";
 const QUAY_API_TOKEN = process.env.API_TOKEN || "";
 
+// ── Preflight checks ────────────────────────────────────────────────────
+
+function preflight() {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // Check Playwright browser
+  try {
+    const browserPath = execSync("npx playwright install --dry-run chromium 2>&1", { encoding: "utf-8" });
+    if (browserPath.includes("not installed")) {
+      errors.push("Playwright chromium not installed. Run: npx playwright install chromium");
+    }
+  } catch {
+    // --dry-run may not be supported; try detecting the browser directly
+    try {
+      execSync("npx playwright install chromium --dry-run", { stdio: "ignore" });
+    } catch {
+      // Can't reliably detect — skip, Playwright will error at launch
+    }
+  }
+
+  // Check ffmpeg (needed by convert.sh)
+  try {
+    execSync("which ffmpeg", { stdio: "ignore" });
+  } catch {
+    warnings.push("ffmpeg not found — convert.sh will fail. Install via: pixi install / brew install ffmpeg");
+  }
+
+  // Check jq (needed by convert.sh)
+  try {
+    execSync("which jq", { stdio: "ignore" });
+  } catch {
+    warnings.push("jq not found — convert.sh will fail. Install via: pixi install / brew install jq");
+  }
+
+  // Check audio files
+  const audioDir = path.join(OUTPUT_DIR, "audio");
+  if (!fs.existsSync(audioDir) || !fs.existsSync(path.join(audioDir, "01.wav"))) {
+    warnings.push("Audio files not found in output/audio/. Run: pixi run audio");
+  }
+
+  // Check Quay.io credentials
+  if (!QUAY_USERNAME || !QUAY_PASSWORD) {
+    warnings.push("QUAY_USERNAME / QUAY_PASSWORD not set — registry & publish scenes will be limited");
+  }
+  if (!QUAY_API_TOKEN) {
+    warnings.push("API_TOKEN not set — registry browsing will be limited");
+  }
+
+  if (errors.length > 0) {
+    console.error("\n✗ Preflight failed:");
+    for (const e of errors) console.error(`  - ${e}`);
+    if (warnings.length > 0) {
+      console.warn("\n⚠ Warnings:");
+      for (const w of warnings) console.warn(`  - ${w}`);
+    }
+    process.exit(1);
+  }
+
+  if (warnings.length > 0) {
+    console.warn("\n⚠ Preflight warnings:");
+    for (const w of warnings) console.warn(`  - ${w}`);
+    console.warn("");
+  }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 function sleep(ms: number) {
@@ -601,15 +667,15 @@ async function recordDemo(base: string) {
   // View Tags → Import flow (continues during narration)
   await demoClick(page, page.getByRole("table").getByRole("button", { name: "View Tags" }).first());
   await page.getByText("Select a tag to import").waitFor();
-  await page.getByRole("table").getByRole("button", { name: "Import" }).first().waitFor({ timeout: 15000 });
-  await demoClick(page, page.getByRole("table").getByRole("button", { name: "Import" }).first());
+  await page.getByRole("table").getByRole("button", { name: "Import", exact: true }).first().waitFor({ timeout: 15000 });
+  await demoClick(page, page.getByRole("table").getByRole("button", { name: "Import", exact: true }).first());
   await showAnnotation(page, "Import environments with one click");
   const wsNameInput = page.getByPlaceholder("Enter workspace name");
   await wsNameInput.waitFor();
   await demoClick(page, wsNameInput);
   await demoType(page, wsNameInput, "imported-env");
   const importCard = page.locator("[class*='card']", { has: page.getByText("Import Environment") });
-  await demoClick(page, importCard.getByRole("button", { name: "Import" }));
+  await demoClick(page, importCard.getByRole("button", { name: "Import", exact: true }));
   await page.waitForURL("**/workspaces", { timeout: 60000 });
   await hideAnnotation(page);
   await waitForClipEnd();
@@ -679,6 +745,8 @@ async function recordDemo(base: string) {
 // ── Main ────────────────────────────────────────────────────────────────
 
 async function main() {
+  preflight();
+
   // Clean old output (preserve audio/ subdirectory from generate_audio.py)
   if (fs.existsSync(OUTPUT_DIR)) {
     for (const f of fs.readdirSync(OUTPUT_DIR)) {
